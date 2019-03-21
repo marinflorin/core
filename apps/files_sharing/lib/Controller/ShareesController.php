@@ -214,7 +214,15 @@ class ShareesController extends OCSController {
 				}
 				$this->result['exact']['users'][] = $entry;
 			} else {
-				$this->result['users'][] = $entry;
+				$userAutoCompleteEnabled = $this->config->getUserValue(
+					$user->getUID(),
+					'files_sharing',
+					'allow_share_dialog_user_enumeration',
+					'yes'
+				) === 'yes';
+				if ($userAutoCompleteEnabled) {
+					$this->result['users'][] = $entry;
+				}
 			}
 		}
 
