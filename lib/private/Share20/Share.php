@@ -287,6 +287,7 @@ class Share implements IShare {
 		$this->attributes = $attributes;
 		return $this;
 	}
+
 	/**
 	 * @inheritdoc
 	 */

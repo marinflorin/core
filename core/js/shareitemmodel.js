@@ -59,17 +59,19 @@
 
 	/**
 	 * @typedef {object} OC.Share.Types.ShareAttribute
-	 * @property {string} name
+	 * @property {string} key
 	 * @property {string} scope
 	 * @property {bool}   enabled
 	 */
 
 	/**
 	 * @typedef {object} OC.Share.Types.RegisteredShareAttribute
-	 * @property {string} name
+	 * @property {string} key
 	 * @property {bool}   default
 	 * @property {string} scope
 	 * @property {string} label
+	 * @property {string} description
+	 * @property {number[]} shareType
 	 * @property {number[]} incompatiblePermissions
 	 * @property {OC.Share.Types.ShareAttribute[]} incompatibleAttributes
 	 */
@@ -179,7 +181,7 @@
 				_.map(filteredRegisteredAttribute.incompatibleAttributes, function(incompatibleAttribute) {
 					_.map(filteredRegisteredAttributes, function(checkAttr) {
 						if (incompatibleAttribute.scope === checkAttr.scope &&
-							incompatibleAttribute.name === checkAttr.name &&
+							incompatibleAttribute.key === checkAttr.key &&
 							incompatibleAttribute.enabled === checkAttr.default) {
 							isCompatible = false;
 						}
@@ -189,7 +191,7 @@
 				if (isCompatible) {
 					newShareAttributes.push({
 						scope : filteredRegisteredAttribute.scope,
-						name: filteredRegisteredAttribute.name,
+						key: filteredRegisteredAttribute.key,
 						enabled: filteredRegisteredAttribute.default
 					});
 				}
@@ -243,12 +245,12 @@
 				// and set this attribute
 				var found = false;
 				_.map(properties.attributes, function(currentAttribute) {
-					if (currentAttribute.name === filteredRegisteredAttribute.name
+					if (currentAttribute.key === filteredRegisteredAttribute.key
 						&& currentAttribute.scope === filteredRegisteredAttribute.scope) {
 						found = true;
 						filteredAttributes.push({
 							scope : filteredRegisteredAttribute.scope,
-							name: filteredRegisteredAttribute.name,
+							key: filteredRegisteredAttribute.key,
 							incompatibleAttributes: filteredRegisteredAttribute.incompatibleAttributes,
 							enabled: currentAttribute.enabled
 						});
@@ -262,7 +264,7 @@
 				if (!found) {
 					filteredAttributes.push({
 						scope : filteredRegisteredAttribute.scope,
-						name: filteredRegisteredAttribute.name,
+						key: filteredRegisteredAttribute.key,
 						incompatibleAttributes: filteredRegisteredAttribute.incompatibleAttributes,
 						enabled: filteredRegisteredAttribute.default
 					});
@@ -276,7 +278,7 @@
 				_.map(filteredAttribute.incompatibleAttributes, function(incompatibleAttribute) {
 					_.map(filteredAttributes, function(checkAttr) {
 						if (incompatibleAttribute.scope === checkAttr.scope &&
-							incompatibleAttribute.name === checkAttr.name &&
+							incompatibleAttribute.key === checkAttr.key &&
 							incompatibleAttribute.enabled === checkAttr.enabled) {
 							isCompatible = false;
 						}
@@ -286,7 +288,7 @@
 				if (isCompatible) {
 					newShareAttributes.push({
 						scope : filteredAttribute.scope,
-						name: filteredAttribute.name,
+						key: filteredAttribute.key,
 						enabled: filteredAttribute.enabled
 					});
 				}
@@ -936,13 +938,13 @@
 		 * attribute does not exist, null is returned.
 		 *
 		 * @param scope
-		 * @param name
+		 * @param key
 		 * @returns string|null
 		 */
-		getRegisteredShareAttributeLabel: function(scope, name) {
+		getRegisteredShareAttributeLabel: function(scope, key) {
 			for(var i in this._registeredAttributes) {
 				if (this._registeredAttributes[i].scope === scope
-					&& this._registeredAttributes[i].name === name) {
+					&& this._registeredAttributes[i].key === key) {
 					return this._registeredAttributes[i].label;
 				}
 			}
@@ -959,7 +961,7 @@
 			var exists = false;
 			for(var i in this._registeredAttributes) {
 				if (this._registeredAttributes[i].scope === $shareAttribute.scope
-					&& this._registeredAttributes[i].name === $shareAttribute.name) {
+					&& this._registeredAttributes[i].key === $shareAttribute.key) {
 					this._registeredAttributes[i] = $shareAttribute;
 					exists = true;
 				}

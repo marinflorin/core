@@ -56,17 +56,18 @@ class ShareAttributes implements IAttributes {
 	/**
 	 * @inheritdoc
 	 */
-	public function getScopes() {
-		return \array_keys($this->attributes);
-	}
-
-	/**
-	 * @inheritdoc
-	 */
-	public function getKeys($scope) {
-		if (!\array_key_exists($scope, $this->attributes)) {
-			return [];
+	public function toArray() {
+		$result = [];
+		foreach ($this->attributes as $scope => $keys) {
+			foreach ($keys as $key => $enabled) {
+				$result[] = [
+					"scope" => $scope,
+					"key" => $key,
+					"enabled" => $enabled
+				];
+			}
 		}
-		return \array_keys($this->attributes[$scope]);
+
+		return $result;
 	}
 }

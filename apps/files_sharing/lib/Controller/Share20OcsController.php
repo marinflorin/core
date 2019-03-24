@@ -222,22 +222,7 @@ class Share20OcsController extends OCSController {
 
 		$result['mail_send'] = $share->getMailSend() ? 1 : 0;
 
-		$attributes = $share->getAttributes();
-		if ($attributes !== null) {
-			// Share provider supports share attributes
-			$formattedShareAttributes = [];
-			foreach ($attributes->getScopes() as $scope) {
-				foreach ($attributes->getKeys($scope) as $key) {
-					$formattedAttr['scope'] = $scope;
-					$formattedAttr['name'] = $key;
-					$formattedAttr['enabled'] = $attributes->getAttribute($scope, $key);
-					$formattedShareAttributes[] = $formattedAttr;
-				}
-			}
-			$result['attributes'] = \json_encode($formattedShareAttributes);
-		} else {
-			$result['attributes'] = null;
-		}
+		$result['attributes'] = $this->formatShareAttributes($share);
 
 		return $result;
 	}
@@ -516,12 +501,7 @@ class Share20OcsController extends OCSController {
 		$share->setShareType($shareType);
 		$share->setSharedBy($this->userSession->getUser()->getUID());
 
-		try {
-			$share = $this->setShareAttributes($share, $this->request->getParam('attributes', null));
-		} catch (\Exception $e) {
-			$share->getNode()->unlock(ILockingProvider::LOCK_SHARED);
-			return new Result(null, 400, $this->l->t('Cannot parse extra share permissions'));
-		}
+		$share = $this->setShareAttributes($share, $this->request->getParam('attributes', null));
 
 		try {
 			$share = $this->shareManager->createShare($share);
@@ -878,12 +858,7 @@ class Share20OcsController extends OCSController {
 			return new Result(null, 400, $this->l->t('Cannot remove all permissions'));
 		}
 
-		try {
-			$share = $this->setShareAttributes($share, $this->request->getParam('attributes', null));
-		} catch (\Exception $e) {
-			$share->getNode()->unlock(ILockingProvider::LOCK_SHARED);
-			return new Result(null, 400, $this->l->t('Cannot parse extra share permissions'));
-		}
+		$share = $this->setShareAttributes($share, $this->request->getParam('attributes', null));
 
 		try {
 			$share = $this->shareManager->updateShare($share);
@@ -1218,6 +1193,17 @@ class Share20OcsController extends OCSController {
 
 	/**
 	 * @param IShare $share
+	 * @return string|null
+	 */
+	private function formatShareAttributes(IShare $share) {
+		if ($attributes = $share->getAttributes()) {
+			return \json_encode($attributes->toArray());
+		}
+		return null;
+	}
+
+	/**
+	 * @param IShare $share
 	 * @param string[][]|null $formattedShareAttributes
 	 * @return IShare modified share
 	 */
@@ -1227,7 +1213,7 @@ class Share20OcsController extends OCSController {
 			foreach ($formattedShareAttributes as $formattedAttr) {
 				$newShareAttributes->setAttribute(
 					$formattedAttr["scope"],
-					$formattedAttr["name"],
+					$formattedAttr["key"],
 					(bool) \json_decode($formattedAttr["enabled"])
 				);
 			}

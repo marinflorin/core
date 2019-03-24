@@ -208,6 +208,25 @@ class Share20OcsControllerTest extends TestCase {
 		return $groupMock;
 	}
 
+	private function mockShareAttributes() {
+		$formattedShareAttributes = [
+			[
+				[
+					"scope" => "permissions",
+					"key" => "download",
+					"enabled" => true
+				]
+			]
+		];
+
+		$shareAttributes = $this->createMock(IShareAttributes::class);
+		$shareAttributes->method('toArray')->willReturn($formattedShareAttributes);
+		$shareAttributes->method('getAttribute')->with('permissions', 'download')->willReturn(true);
+
+		// send both IShare attributes class and expected json string
+		return [$shareAttributes, \json_encode($formattedShareAttributes)];
+	}
+
 	public function testDeleteShareShareNotFound() {
 		$this->shareManager
 			->expects($this->exactly(2))
@@ -325,23 +344,6 @@ class Share20OcsControllerTest extends TestCase {
 		}
 
 		return $share;
-	}
-
-	private function mockShareAttributes() {
-		$shareAttributes = $this->createMock(IShareAttributes::class);
-		$shareAttributes->method('getScopes')->willReturn(['app1']);
-		$shareAttributes->method('getKeys')->with('app1')->willReturn(['attr1']);
-		$shareAttributes->method('getAttribute')->with('app1', 'attr1')->willReturn(true);
-		$formattedShareAttributes = [
-			[
-				'scope' => 'app1',
-				'name' => 'attr1',
-				'enabled' => true
-			]
-		];
-
-		// send both IShare attributes class and expected json string
-		return [$shareAttributes, \json_encode($formattedShareAttributes)];
 	}
 
 	public function dataGetShare() {

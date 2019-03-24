@@ -139,7 +139,7 @@
 				// registered share attributes and get its label
 				var label = model.getRegisteredShareAttributeLabel(
 					attribute.scope,
-					attribute.name
+					attribute.key
 				);
 
 				if (label) {
@@ -148,14 +148,14 @@
 						shareWith: shareWith,
 						enabled: attribute.enabled,
 						scope: attribute.scope,
-						name: attribute.name,
+						name: attribute.key,
 						label: label
 					});
 				} else {
 					OC.Notification.showTemporary(t('core', 'Share with ' +
 						'user {shareWith} has attribute {name} which is ' +
 						'no longer available. Please recreate the share!',
-						{ name: attribute.name, shareWith: shareWith })
+						{ name: attribute.key, shareWith: shareWith })
 					);
 				}
 			});
@@ -257,6 +257,7 @@
 				});
 			}
 
+			var element = this.$el.find('.has-tooltip');
 			this.$el.find('.has-tooltip').tooltip({
 				placement: 'bottom'
 			});
@@ -338,7 +339,7 @@
 				$(checkbox).prop('enabled', checked);
 				attributes.push({
 					scope : $(checkbox).data('scope'),
-					name: $(checkbox).attr('name'),
+					key: $(checkbox).attr('name'),
 					enabled: checked
 				});
 			});

@@ -51,19 +51,18 @@ interface IAttributes {
 	public function getAttribute($scope, $key);
 
 	/**
-	 * Get all registered scopes for which attributes are set
+	 * Formats the IAttributes object to array with the following format:
+	 * [
+	 * 	0 => [
+	 * 			"scope" => <string>,
+	 * 			"key" => <string>,
+	 * 			"enabled" => <bool>
+	 * 		],
+	 * 	...
+	 * ]
 	 *
-	 * @return string[] scope
+	 * @return array formatted IAttributes
 	 * @since 10.2.0
 	 */
-	public function getScopes();
-
-	/**
-	 * Get all attribute keys for specific scope
-	 *
-	 * @param string $scope
-	 * @return string[]
-	 * @since 10.2.0
-	 */
-	public function getKeys($scope);
+	public function toArray();
 }

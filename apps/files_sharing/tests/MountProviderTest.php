@@ -76,15 +76,16 @@ class MountProviderTest extends TestCase {
 		}
 
 		$shareAttributes = $this->createMock(IShareAttributes::class);
-		$shareAttributes->method('getScopes')->willReturn(\array_keys($attrs));
-		$shareAttributes->method('getKeys')->will(
-			$this->returnCallback(function ($scope) use ($attrs) {
-				return \array_keys($attrs[$scope]);
-			})
-		);
+		$shareAttributes->method('toArray')->willReturn($attrs);
 		$shareAttributes->method('getAttribute')->will(
 			$this->returnCallback(function ($scope, $key) use ($attrs) {
-				return $attrs[$scope][$key];
+				$result = null;
+				foreach ($attrs as $attr) {
+					if ($attr['key'] === $key && $attr['scope'] === $scope) {
+						$result = $attr['enabled'];
+					}
+				}
+				return $result;
 			})
 		);
 		return $shareAttributes;
@@ -138,7 +139,7 @@ class MountProviderTest extends TestCase {
 		$userManager = $this->createMock(IUserManager::class);
 
 		$attr1 = [];
-		$attr2 = ['app1' => ['perm1' => true]];
+		$attr2 = [["scope" => "permission", "key" => "download", "enabled" => true]];
 		$userShares = [
 			$this->makeMockShare(1, 100, 'user2', '/share2', 0, $attr1),
 			$this->makeMockShare(2, 100, 'user2', '/share2', 31, $attr2),
@@ -184,7 +185,7 @@ class MountProviderTest extends TestCase {
 		$this->assertEquals(100, $mountedShare1->getNodeId());
 		$this->assertEquals('/share2', $mountedShare1->getTarget());
 		$this->assertEquals(31, $mountedShare1->getPermissions());
-		$this->assertEquals(true, $mountedShare1->getAttributes()->getAttribute('app1', 'perm1'));
+		$this->assertEquals(true, $mountedShare1->getAttributes()->getAttribute('permission', 'download'));
 
 		$mountedShare2 = $mounts[1]->getShare();
 		$this->assertEquals('4', $mountedShare2->getId());
@@ -192,7 +193,7 @@ class MountProviderTest extends TestCase {
 		$this->assertEquals(101, $mountedShare2->getNodeId());
 		$this->assertEquals('/share4', $mountedShare2->getTarget());
 		$this->assertEquals(31, $mountedShare2->getPermissions());
-		$this->assertEquals(true, $mountedShare2->getAttributes()->getAttribute('app1', 'perm1'));
+		$this->assertEquals(true, $mountedShare2->getAttributes()->getAttribute('permission', 'download'));
 	}
 
 	public function mergeSharesDataProvider() {
@@ -215,14 +216,14 @@ class MountProviderTest extends TestCase {
 			// #1: share as outsider with "group1" and "user1" with different permissions
 			[
 				[
-					[1, 100, 'user2', '/share', 31, ['app1' => ['perm1' => true]]],
+					[1, 100, 'user2', '/share', 31, [["scope" => "permission", "key" => "download", "enabled" => true], ["scope" => "app", "key" => "attribute1", "enabled" => true]]],
 				],
 				[
-					[2, 100, 'user2', '/share', 15, ['app2' => ['perm3' => false], 'app1' => ['perm1' => false, 'perm2' => false]]],
+					[2, 100, 'user2', '/share', 15, [["scope" => "permission", "key" => "download", "enabled" => false], ["scope" => "app", "key" => "attribute2", "enabled" => false]]],
 				],
 				[
 					// use highest permissions
-					['1', 100, 'user2', '/share', 31, ['app2' => ['perm3' => false], 'app1' => ['perm1' => true, 'perm2' => false]]],
+					['1', 100, 'user2', '/share', 31, [["scope" => "permission", "key" => "download", "enabled" => true], ["scope" => "app", "key" => "attribute1", "enabled" => true], ["scope" => "app", "key" => "attribute2", "enabled" => false]]],
 				],
 			],
 			// #2: share as outsider with "group1" and "group2" with same permissions
@@ -243,12 +244,12 @@ class MountProviderTest extends TestCase {
 				[
 				],
 				[
-					[1, 100, 'user2', '/share', 31, ['app1' => ['perm1' => true]]],
-					[2, 100, 'user2', '/share', 15, ['app1' => ['perm1' => false]]],
+					[1, 100, 'user2', '/share', 31, [["scope" => "permission", "key" => "download", "enabled" => false]]],
+					[2, 100, 'user2', '/share', 15, [["scope" => "permission", "key" => "download", "enabled" => true]]],
 				],
 				[
-					// use higher permissions
-					['1', 100, 'user2', '/share', 31, ['app1' => ['perm1' => true]]],
+					// use higher permissions (most permissive)
+					['1', 100, 'user2', '/share', 31, [["scope" => "permission", "key" => "download", "enabled" => true]]],
 				],
 			],
 			// #4: share as insider with "group1"
@@ -267,8 +268,8 @@ class MountProviderTest extends TestCase {
 				[
 				],
 				[
-					[1, 100, 'user1', '/share', 31, ['app1' => ['perm1' => true]]],
-					[2, 100, 'user1', '/share', 15, ['app1' => ['perm1' => false]]],
+					[1, 100, 'user1', '/share', 31, [["scope" => "permission", "key" => "download", "enabled" => true]]],
+					[2, 100, 'user1', '/share', 15, [["scope" => "permission", "key" => "download", "enabled" => false]]],
 				],
 				[
 					// no received share since "user1" is the sharer/owner
@@ -326,21 +327,6 @@ class MountProviderTest extends TestCase {
 				true
 			],
 		];
-	}
-
-	private function assertShareAttributes($expected, IShareAttributes $actual) {
-		if ($expected === null) {
-			$this->assertEquals($expected, $actual);
-		} else {
-			$actualArray = [];
-			foreach ($actual->getScopes() as $scope) {
-				$actualArray[$scope] = [];
-				foreach ($actual->getKeys($scope) as $key) {
-					$actualArray[$scope][$key] = $actual->getAttribute($scope, $key);
-				}
-			}
-			$this->assertEquals($expected, $actualArray);
-		}
 	}
 
 	/**
@@ -409,7 +395,11 @@ class MountProviderTest extends TestCase {
 			$this->assertEquals($expectedShare[2], $share->getShareOwner());
 			$this->assertEquals($expectedShare[3], $share->getTarget());
 			$this->assertEquals($expectedShare[4], $share->getPermissions());
-			$this->assertShareAttributes($expectedShare[5], $share->getAttributes());
+			if ($expectedShare[5] === null) {
+				$this->assertNull($share->getAttributes());
+			} else {
+				$this->assertEquals($expectedShare[5], $share->getAttributes()->toArray());
+			}
 		}
 	}
 }

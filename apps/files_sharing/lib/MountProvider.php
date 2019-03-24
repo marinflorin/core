@@ -30,6 +30,7 @@ use OCP\Files\Storage\IStorageFactory;
 use OCP\IConfig;
 use OCP\ILogger;
 use OCP\IUser;
+use OCP\Share\IAttributes;
 use OCP\Share\IManager;
 
 class MountProvider implements IMountProvider {
@@ -173,17 +174,15 @@ class MountProvider implements IMountProvider {
 				// update permissions
 				$superPermissions |= $share->getPermissions();
 
-				// update share attributes
+				// update share permission attributes
 				if ($share->getAttributes() !== null) {
-					foreach ($share->getAttributes()->getScopes() as $app) {
-						foreach ($share->getAttributes()->getKeys($app) as $key) {
-							// if permission is already enabled, it is most permissive
-							if ($superAttributes->getAttribute($app, $key) === true) {
-								continue;
-							}
-							$enabled = $share->getAttributes()->getAttribute($app, $key);
-							$superAttributes->setAttribute($app, $key, $enabled);
+					foreach ($share->getAttributes()->toArray() as $attribute) {
+						if ($superAttributes->getAttribute($attribute['scope'], $attribute['key']) === true) {
+							// if super share attribute is already enabled, it is most permissive
+							continue;
 						}
+						// update supershare attributes with subshare attribute
+						$superAttributes->setAttribute($attribute['scope'], $attribute['key'], $attribute['enabled']);
 					}
 				}
 

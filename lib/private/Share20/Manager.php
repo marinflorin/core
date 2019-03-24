@@ -1557,17 +1557,10 @@ class Manager implements IManager {
 	 * @return string
 	 */
 	private function hashAttributes($perms) {
-		if ($perms === null) {
+		if ($perms === null || empty($perms->toArray())) {
 			return "";
 		}
 
-		$formattedPermissions = [];
-		foreach ($perms->getScopes() as $scope) {
-			$formattedPermissions[$scope] = [];
-			foreach ($perms->getKeys($scope) as $key) {
-				$formattedPermissions[$scope][$key] = $perms->getAttribute($scope, $key);
-			}
-		}
-		return \md5(\json_encode($formattedPermissions));
+		return \md5(\json_encode($perms->toArray()));
 	}
 }

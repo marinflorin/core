@@ -1025,7 +1025,7 @@ class ApiTest extends TestCase {
 			'attributes' => [
 				[
 					'scope' => 'app1',
-					'name' => 'attr1',
+					'key' => 'attr1',
 					'enabled' => 'true',
 				],
 			]

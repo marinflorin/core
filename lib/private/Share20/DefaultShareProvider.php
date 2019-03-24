@@ -1267,17 +1267,19 @@ class DefaultShareProvider implements IShareProvider {
 	 * Load from database format (JSON string) to IAttributes
 	 *
 	 * @param IShare $share
-	 * @param string $data
+	 * @param string|null $data
 	 * @return IShare modified share
 	 */
 	private function updateShareAttributes(IShare $share, $data) {
 		if ($data !== null) {
 			$attributes = new ShareAttributes();
-			$attributesJson = \json_decode($data, true);
-			foreach ($attributesJson as $scope => $keys) {
-				foreach ($keys as $key => $enabled) {
-					$attributes->setAttribute($scope, $key, $enabled);
-				}
+			$compressedAttributes = \json_decode($data, true);
+			foreach ($compressedAttributes as $compressedAttribute) {
+				$attributes->setAttribute(
+					$compressedAttribute[0],
+					$compressedAttribute[1],
+					$compressedAttribute[2]
+				);
 			}
 			$share->setAttributes($attributes);
 		}
@@ -1292,17 +1294,18 @@ class DefaultShareProvider implements IShareProvider {
 	 * @return string|null
 	 */
 	private function formatShareAttributes($attributes) {
-		if ($attributes === null || empty($attributes->getScopes())) {
+		if ($attributes === null || empty($attributes->toArray())) {
 			return null;
 		}
-		$formattedAttributes = [];
-		foreach ($attributes->getScopes() as $scope) {
-			$formattedAttributes[$scope] = [];
-			foreach ($attributes->getKeys($scope) as $key) {
-				$formattedAttributes[$scope][$key] = $attributes->getAttribute($scope, $key);
-			}
-		}
 
-		return \json_encode($formattedAttributes);
+		$compressedAttributes = [];
+		foreach ($attributes->toArray() as $attribute) {
+			$compressedAttributes[] = [
+				0 => $attribute['scope'],
+				1 => $attribute['key'],
+				2 => $attribute['enabled']
+			];
+		}
+		return \json_encode($compressedAttributes);
 	}
 }

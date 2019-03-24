@@ -34,7 +34,7 @@ use Sabre\HTTP\RequestInterface;
 use Sabre\DAV\Exception\NotFound;
 
 /**
- * Sabre plugin for the the file secure-view:
+ * Sabre plugin for restricting file share receiver download:
  */
 class ViewOnlyPlugin extends ServerPlugin {
 
@@ -102,9 +102,9 @@ class ViewOnlyPlugin extends ServerPlugin {
 			$share = $storage->getShare();
 
 			// Check if read-only and on whether permission can download is both set and disabled.
-			$blockDownload = $share->getAttributes()->getAttribute('core', 'secure-view-enabled');
-			if ($blockDownload !== null && $blockDownload) {
-				throw new Forbidden('File or folder is in secure viewing only mode and cannot be directly downloaded.');
+			$canDownload = $share->getAttributes()->getAttribute('permissions', 'download');
+			if ($canDownload !== null && !$canDownload) {
+				throw new Forbidden('File or folder is in viewing only mode and cannot be directly downloaded.');
 			}
 		} catch (NotFound $e) {
 			$this->logger->warning($e->getMessage());

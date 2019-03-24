@@ -107,8 +107,8 @@ class ViewOnly {
 
 		// Check if read-only and on whether permission can download is both set and disabled.
 
-		$blockDownload = $share->getAttributes()->getAttribute('core', 'secure-view-enabled');
-		if ($blockDownload !== null && $blockDownload) {
+		$canDownload = $share->getAttributes()->getAttribute('permissions', 'download');
+		if ($canDownload !== null && !$canDownload) {
 			return false;
 		}
 		return true;

@@ -55,9 +55,9 @@ class HooksTest extends TestCase {
 	private $urlGenerator;
 
 	/**
-	 * @var string | null
+	 * @var IUserSession | \PHPUnit_Framework_MockObject_MockObject
 	 */
-	private $uid;
+	private $userSession;
 
 	/**
 	 * @var IRootFolder | \PHPUnit_Framework_MockObject_MockObject
@@ -85,7 +85,7 @@ class HooksTest extends TestCase {
 		$this->rootFolder = $this->createMock(IRootFolder::class);
 		$this->shareManager = $this->createMock(\OCP\Share\IManager::class);
 		$this->notificationPublisher = $this->createMock(NotificationPublisher::class);
-		$this->uid = 'test';
+		$this->userSession = $this->createMock(IUserSession::class);
 
 		$this->hooks = new Hooks(
 			$this->rootFolder,
@@ -93,7 +93,7 @@ class HooksTest extends TestCase {
 			$this->eventDispatcher,
 			$this->shareManager,
 			$this->notificationPublisher,
-			$this->uid
+			$this->userSession
 		);
 		$this->hooks->registerListeners();
 	}
@@ -196,12 +196,12 @@ class HooksTest extends TestCase {
 		$senderUserFolder = $this->createMock(Folder::class);
 		$senderUserFolder->method('get')->willReturn($senderFile);
 
-		$return[] = [ '/bar.txt', $senderUserFolder, true ];
+		$result[] = [ '/bar.txt', $senderUserFolder, true ];
 
 		// shared file (receiver) with attribute secure-view-enabled set false -
 		// can download directly
 		$receiverFileShareAttributes = $this->createMock(IAttributes::class);
-		$receiverFileShareAttributes->method('getAttribute')->with('core', 'secure-view-enabled')->willReturn(false);
+		$receiverFileShareAttributes->method('getAttribute')->with('permissions', 'download')->willReturn(true);
 		$receiverFileShare = $this->createMock(IShare::class);
 		$receiverFileShare->method('getAttributes')->willReturn($receiverFileShareAttributes);
 		$receiverFileStorage = $this->createMock(SharedStorage::class);
@@ -212,12 +212,12 @@ class HooksTest extends TestCase {
 		$receiverUserFolder = $this->createMock(Folder::class);
 		$receiverUserFolder->method('get')->willReturn($receiverFile);
 
-		$return[] = [ '/share-bar.txt', $receiverUserFolder, true ];
+		$result[] = [ '/share-bar.txt', $receiverUserFolder, true ];
 
 		// shared file (receiver) with attribute secure-view-enabled set true -
 		// cannot download directly
 		$secureReceiverFileShareAttributes = $this->createMock(IAttributes::class);
-		$secureReceiverFileShareAttributes->method('getAttribute')->with('core', 'secure-view-enabled')->willReturn(true);
+		$secureReceiverFileShareAttributes->method('getAttribute')->with('permissions', 'download')->willReturn(false);
 		$secureReceiverFileShare = $this->createMock(IShare::class);
 		$secureReceiverFileShare->method('getAttributes')->willReturn($secureReceiverFileShareAttributes);
 		$secureReceiverFileStorage = $this->createMock(SharedStorage::class);
@@ -228,16 +228,20 @@ class HooksTest extends TestCase {
 		$secureReceiverUserFolder = $this->createMock(Folder::class);
 		$secureReceiverUserFolder->method('get')->willReturn($secureReceiverFile);
 
-		$return[] = [ '/secure-share-bar.txt', $secureReceiverUserFolder, false ];
+		$result[] = [ '/secure-share-bar.txt', $secureReceiverUserFolder, false ];
 
-		return $return;
+		return $result;
 	}
 
 	/**
 	 * @dataProvider providesDataForCanGet
 	 */
 	public function testCheckDirectCanBeDownloaded($path, $userFolder, $run) {
-		$this->rootFolder->method('getUserFolder')->with($this->uid)->willReturn($userFolder);
+		$user = $this->createMock(IUser::class);
+		$user->method("getUID")->willReturn("test");
+		$this->userSession->method("getUser")->willReturn($user);
+		$this->userSession->method("isLoggedIn")->willReturn(true);
+		$this->rootFolder->method('getUserFolder')->willReturn($userFolder);
 
 		// Simulate direct download of file
 		$event = new GenericEvent(null, [ 'path' => $path ]);
@@ -253,7 +257,7 @@ class HooksTest extends TestCase {
 
 		// Mock: Secure-view file/folder shared storage
 		$secureReceiverFileShareAttributes = $this->createMock(IAttributes::class);
-		$secureReceiverFileShareAttributes->method('getAttribute')->with('core', 'secure-view-enabled')->willReturn(true);
+		$secureReceiverFileShareAttributes->method('getAttribute')->with('permissions', 'download')->willReturn(false);
 		$secureReceiverFileShare = $this->createMock(IShare::class);
 		$secureReceiverFileShare->method('getAttributes')->willReturn($secureReceiverFileShareAttributes);
 		$secureSharedStorage = $this->createMock(SharedStorage::class);
@@ -310,7 +314,12 @@ class HooksTest extends TestCase {
 	 * @dataProvider providesDataForCanZip
 	 */
 	public function testCheckZipCanBeDownloaded($dir, $files, $userFolder, $run) {
-		$this->rootFolder->method('getUserFolder')->with($this->uid)->willReturn($userFolder);
+		$user = $this->createMock(IUser::class);
+		$user->method("getUID")->willReturn("test");
+		$this->userSession->method("getUser")->willReturn($user);
+		$this->userSession->method("isLoggedIn")->willReturn(true);
+
+		$this->rootFolder->method('getUserFolder')->with("test")->willReturn($userFolder);
 
 		// Simulate zip download of folder folder
 		$event = new GenericEvent(null, ['dir' => $dir, 'files' => $files, 'run' => true]);
@@ -320,17 +329,15 @@ class HooksTest extends TestCase {
 		$this->assertEquals($run, !$event->hasArgument('errorMessage'));
 	}
 
-	public function testCheckFileNotFound() {
-		$userFolder = $this->createMock(Folder::class);
-		$userFolder->method('get')->willThrowException(new NotFoundException());
-
-		$this->rootFolder->method('getUserFolder')->with($this->uid)->willReturn($userFolder);
+	public function testCheckFileUserNotFound() {
+		$this->userSession->method("isLoggedIn")->willReturn(false);
 
 		// Simulate zip download of folder folder
 		$event = new GenericEvent(null, ['dir' => '/test', 'files' => ['test.txt'], 'run' => true]);
 		$this->eventDispatcher->dispatch('file.beforeCreateZip', $event);
 
+		// It should run as this would restrict e.g. share links otherwise
 		$this->assertTrue($event->getArgument('run'));
-		$this->assertTrue(!$event->hasArgument('errorMessage'));
+		$this->assertFalse($event->hasArgument('errorMessage'));
 	}
 }

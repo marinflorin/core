@@ -47,9 +47,9 @@ class Hooks {
 	private $rootFolder;
 
 	/**
-	 * @var string|null
+	 * @var IUserSession|null
 	 */
-	private $uid;
+	private $userSession;
 
 	/**
 	 * @var EventDispatcher
@@ -66,15 +66,25 @@ class Hooks {
 	 */
 	private $notificationPublisher;
 
+	/**
+	 * Hooks constructor.
+	 *
+	 * @param IRootFolder $rootFolder
+	 * @param IURLGenerator $urlGenerator
+	 * @param EventDispatcher $eventDispatcher
+	 * @param \OCP\Share\IManager $shareManager
+	 * @param NotificationPublisher $notificationPublisher
+	 * @param IUserSession|null $userSession
+	 */
 	public function __construct(
 		IRootFolder $rootFolder,
 		IUrlGenerator $urlGenerator,
 		EventDispatcher $eventDispatcher,
 		\OCP\Share\IManager $shareManager,
 		NotificationPublisher $notificationPublisher,
-		$uid
+		$userSession
 	) {
-		$this->uid = $uid;
+		$this->userSession = $userSession;
 		$this->rootFolder = $rootFolder;
 		$this->urlGenerator = $urlGenerator;
 		$this->eventDispatcher = $eventDispatcher;
@@ -145,11 +155,14 @@ class Hooks {
 			function (GenericEvent $event) {
 				$pathsToCheck[] = $event->getArgument('path');
 
-				$viewOnlyHandler = new ViewOnly(
-					$this->rootFolder->getUserFolder($this->uid)
-				);
-				if (!$viewOnlyHandler->check($pathsToCheck)) {
-					$event->setArgument('errorMessage', 'File, folder or one of the files inside the folder cannot be downloaded');
+				// Check only for user/group shares. Don't restrict e.g. share links
+				if ($uid = $this->getCurrentUserUid()) {
+					$viewOnlyHandler = new ViewOnly(
+						$this->rootFolder->getUserFolder($uid)
+					);
+					if (!$viewOnlyHandler->check($pathsToCheck)) {
+						$event->setArgument('errorMessage', 'File, folder or one of the files inside the folder cannot be downloaded');
+					}
 				}
 			}
 		);
@@ -169,17 +182,31 @@ class Hooks {
 					$pathsToCheck[] = $dir . '/' . $files;
 				}
 
-				$viewOnlyHandler = new ViewOnly(
-					$this->rootFolder->getUserFolder($this->uid)
-				);
-				if (!$viewOnlyHandler->check($pathsToCheck)) {
-					$event->setArgument('errorMessage', 'File, folder or one of the files inside the folder cannot be downloaded');
-					$event->setArgument('run', false);
+				// Check only for user/group shares. Don't restrict e.g. share links
+				if ($uid = $this->getCurrentUserUid()) {
+					$viewOnlyHandler = new ViewOnly(
+						$this->rootFolder->getUserFolder($uid)
+					);
+					if (!$viewOnlyHandler->check($pathsToCheck)) {
+						$event->setArgument('errorMessage', 'File, folder or one of the files inside the folder cannot be downloaded');
+						$event->setArgument('run', false);
+					} else {
+						$event->setArgument('run', true);
+					}
 				} else {
 					$event->setArgument('run', true);
 				}
 			}
 		);
+	}
+
+	private function getCurrentUserUid() {
+		// User session can be null when installing oc and Hook is triggered, or
+		// user is not logged in
+		if ($this->userSession && $this->userSession->isLoggedIn()) {
+			return $this->userSession->getUser()->getUID();
+		}
+		return null;
 	}
 
 	private function filterSharesByFileId($shares, $fileId) {
